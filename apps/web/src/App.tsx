@@ -99,7 +99,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>LedgerBox 账匣</h1>
+        <div className="brand"><span className="brand-mark" aria-hidden="true">匣</span><div><h1>账匣</h1><span className="brand-caption">LEDGERBOX · 私人账本</span></div></div>
         <div className="spacer" />
         <select
           value={ledgerId ?? ''}
@@ -133,32 +133,21 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <nav className="nav">
-        <NavLink to="/" end>
-          {({ isActive }) => (
-            <button className={isActive ? 'active' : ''}>首页</button>
-          )}
-        </NavLink>
-        <NavLink to="/capture">
-          {({ isActive }) => (
-            <button className={isActive ? 'active' : ''}>录入</button>
-          )}
-        </NavLink>
-        <NavLink to="/records">
-          {({ isActive }) => (
-            <button className={isActive ? 'active' : ''}>流水</button>
-          )}
-        </NavLink>
-        <NavLink to="/query">
-          {({ isActive }) => (
-            <button className={isActive ? 'active' : ''}>查询</button>
-          )}
-        </NavLink>
-        <NavLink to="/settings">
-          {({ isActive }) => (
-            <button className={isActive ? 'active' : ''}>设置</button>
-          )}
-        </NavLink>
+      <nav className="nav" aria-label="主导航">
+        {[
+          { to: '/', label: '首页', path: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9' },
+          { to: '/capture', label: '录入', path: 'M12 8v8m-4-4h8M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z' },
+          { to: '/records', label: '流水', path: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01' },
+          { to: '/query', label: '查询', path: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z' },
+          { to: '/settings', label: '设置', path: 'M4 7h16M4 17h16M9 4v6m6 4v6' },
+        ].map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d={item.path} />
+            </svg>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
       </nav>
     </div>
   );

@@ -128,6 +128,7 @@ export function SettingsPage({
 
   return (
     <>
+      <div className="page-heading"><span className="eyebrow">PREFERENCES</span><h2>设置</h2><p>让账匣更懂你的记账习惯</p></div>
       <div className="card">
         <h2>模型设置</h2>
         <p className="muted">
