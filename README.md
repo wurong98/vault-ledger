@@ -48,6 +48,31 @@ DeepSeek API Key 可在网页设置中配置。以下环境变量用于按需调
 
 ## 手机访问
 
+### Ubuntu 24 一键安装系统服务
+
+先按 Ctrl+C 停止手动启动的服务，在项目目录以普通用户执行：
+
+```bash
+bash scripts/install-service.sh
+```
+
+脚本自动安装依赖、构建、识别当前 IPv4 地址，配置 `ledgerbox` systemd 服务并启动，支持开机启动和异常退出自动重启。安装系统服务时会要求 sudo 密码；程序仍以当前用户运行，默认沿用该用户的账本数据目录。安装完成后会显示访问地址。
+
+也可以指定固定访问地址（例如这台电脑）：
+
+```bash
+APP_ORIGIN=http://192.168.31.242:8000 bash scripts/install-service.sh
+```
+
+支持通过 `PORT` 和绝对路径 `DATA_DIR` 自定义端口及数据目录。服务保存安装时的 Node.js 路径和访问地址；更换 Node.js 路径、电脑 IP 或拉取代码更新后，重新运行脚本即可。建议在路由器中固定电脑的 IP。脚本不会自动修改防火墙规则。
+
+```bash
+systemctl status ledgerbox             # 查看状态
+sudo journalctl -u ledgerbox -f         # 查看日志
+sudo systemctl restart ledgerbox       # 重启
+sudo systemctl disable --now ledgerbox # 停止并取消开机启动，保留数据
+```
+
 ```bash
 HOST=0.0.0.0 APP_ORIGIN=https://your-tailscale-host npm start
 ```
