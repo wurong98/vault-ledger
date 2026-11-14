@@ -163,7 +163,7 @@ export class LedgerService {
 
   /* ---------- 记录 ---------- */
 
-  listRecords(ledgerId: string, query: RecordListQuery): RecordEntry[] {
+  listRecords(ledgerId: string, query: RecordListQuery, exportAll = false): RecordEntry[] {
     this.requireLedger(ledgerId);
     let records = this.manifest.records.filter((r) => r.ledgerId === ledgerId);
     if (!query.includeVoided) records = records.filter((r) => r.status === 'active');
@@ -189,7 +189,7 @@ export class LedgerService {
         ? a.createdAt.localeCompare(b.createdAt)
         : b.occurredOn.localeCompare(a.occurredOn),
     );
-    return records.slice(0, query.limit);
+    return exportAll ? records : records.slice(0, query.limit);
   }
 
   getRecord(recordId: string): RecordEntry {
