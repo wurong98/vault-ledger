@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Contact, Ledger, LedgerCsvRow, LedgerCsvPreview } from '@ledgerbox/contracts';
 import { api } from '../api.js';
@@ -56,9 +56,13 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     setImportRows(null); setPreview(null); setImportMessage(''); setExportMessage('');
+    setSelectedFile(null);
+    if (fileInput.current) fileInput.current.value = '';
   }, [ledger?.id]);
 
   async function selectCsv(file: File) {
@@ -81,7 +85,9 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
     try {
       const result = await api.post<LedgerCsvPreview>(`/ledgers/${ledger.id}/records/import`, { rows: importRows, expectedRevision: preview.revision });
       setImportMessage(`已全量覆盖导入 ${result.incoming} 笔流水，移除 ${result.removed} 笔文件外流水。`);
-      setImportRows(null); setPreview(null); setRefresh(value => value + 1);
+      setImportRows(null); setPreview(null); setSelectedFile(null);
+      if (fileInput.current) fileInput.current.value = '';
+      setRefresh(value => value + 1);
     } catch (error) {
       setImportMessage(error instanceof Error ? error.message : '导入失败');
       setPreview(null);
@@ -117,16 +123,26 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
         <p className="muted">全量导出当前账本全部流水（含已作废），不受下方筛选限制。</p>
         {exportMessage ? <p role="status">{exportMessage}</p> : null}
         <label htmlFor="import-csv">导入全量 CSV（覆盖当前账本流水）</label>
-        <input id="import-csv" type="file" accept=".csv,text/csv" disabled={importing} onChange={e => { const file = e.target.files?.[0]; if (file) void selectCsv(file); e.target.value = ''; }} />
-        <p className="muted">选择本页新版导出的文件，校验后确认覆盖。其他账本保留；截图文件和修改历史请用加密备份恢复。</p>
+        <input ref={fileInput} id="import-csv" type="file" style={{ display: 'none' }} disabled={importing} onChange={e => {
+          setSelectedFile(e.target.files?.[0] ?? null);
+          setImportRows(null); setPreview(null); setImportMessage('');
+        }} />
+        <div className="row">
+          <button type="button" disabled={importing} onClick={() => fileInput.current?.click()}>选择 CSV 文件</button>
+          <span>{selectedFile ? selectedFile.name : '尚未选择文件'}</span>
+          <button type="button" disabled={!selectedFile || importing} onClick={() => { if (selectedFile) void selectCsv(selectedFile); }}>校验文件</button>
+        </div>
+        <p className="muted">点击「选择 CSV 文件」，再点击「校验文件」，查看预览后确认覆盖。请选择本页新版导出的文件。其他账本保留；截图文件和修改历史请用加密备份恢复。</p>
         {importing ? <p role="status">正在处理…</p> : null}
         {preview && preview.ledgerId === ledger.id ? <div role="alert">
           <p>将覆盖「{ledger.name}」的全部流水：现有 {preview.existing} 笔 → 文件中 {preview.incoming} 笔（含已作废）；其中 {preview.removed} 笔文件外流水将移除。</p>
           <p>当前账本的流水修改历史将清除，分录按文件重新生成。现有可用截图关联保留。</p>
           {preview.missingSources > 0 ? <p className="error">文件中 {preview.missingSources} 笔流水的截图不在本机，导入后无法查看这些截图。</p> : null}
           {preview.incoming === 0 ? <p className="error">文件为空，确认后将清空当前账本流水。</p> : null}
-          <div className="row"><button disabled={importing} onClick={() => void importCsv()}>确认全量覆盖导入</button><button disabled={importing} onClick={() => { setPreview(null); setImportRows(null); }}>取消</button></div>
+          <button type="button" disabled={importing} onClick={() => { setPreview(null); setImportRows(null); }}>取消预览</button>
         </div> : null}
+        <button type="button" className="primary" disabled={importing || !preview || preview.ledgerId !== ledger.id} onClick={() => void importCsv()}>确认全量覆盖导入</button>
+        {!preview ? <p className="muted">选择文件并校验成功后，即可提交导入。</p> : null}
         {importMessage ? <p role="status">{importMessage}</p> : null}
         <label htmlFor="filter-type">类型</label>
         <select
