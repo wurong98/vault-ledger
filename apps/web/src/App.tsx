@@ -117,7 +117,7 @@ export function App() {
     return (
       <div className="app">
         <div className="card">
-          <p className="muted">正在连接 LedgerBox…</p>
+          <p className="muted">正在连接蓝鲸账本…</p>
           {error ? <p className="error">{error}</p> : null}
         </div>
       </div>
@@ -144,7 +144,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark" aria-hidden="true">匣</span><div><h1>账匣</h1><span className="brand-caption">LEDGERBOX · 私人账本</span></div></div>
+        <div className="brand"><img className="brand-mark" src="/bookkeeper.webp" alt="" aria-hidden="true" /><div><h1>蓝鲸账本</h1><span className="brand-caption">BLUE WHALE · 私人账本</span></div></div>
         <div className="spacer" />
         <select
           value={ledgerId ?? ''}

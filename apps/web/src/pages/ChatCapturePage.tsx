@@ -145,9 +145,9 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
       void api.post<{ account: { id: string; name: string } }>(`/ledgers/${ledger.id}/accounts`, { name: accountName.trim() }).then(result => { setAccounts([result.account]); setAccountId(result.account.id); }).catch(err => setError(err instanceof Error ? err.message : '创建账户失败')).finally(() => { lock.current = false; setBusy(false); });
     }}><h2>先给账单选个归属</h2><label htmlFor="chat-account-name">创建第一个账户</label><input id="chat-account-name" maxLength={60} placeholder="例如：微信零钱、现金" value={accountName} onChange={e => setAccountName(e.target.value)} disabled={busy} required /><button className="primary" disabled={busy}>创建账户</button></form> : null}
     <div className="chat-thread" aria-live="polite" aria-busy={busy}>
-      <div className="chat-message assistant"><span className="chat-author">账匣助手</span>你可以让我记一笔、查询花销，或核对旧账单。文字、截图和 CSV 都可以，也可以接着上一轮追问或纠正；记账等你同意后才保存。</div>
+      <div className="chat-message assistant"><span className="chat-author">小鲸老板娘</span>你可以让我记一笔、查询花销，或核对旧账单。文字、截图和 CSV 都可以，也可以接着上一轮追问或纠正；记账等你同意后才保存。</div>
       {messages.length === 0 ? <div className="chat-suggestions">{['今天午饭花了28元','本月餐饮花了多少','谁还欠我钱'].map(prompt => <button key={prompt} onClick={() => setText(prompt)}>{prompt}</button>)}</div> : null}
-      {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span className="chat-author">{message.role === 'user' ? '你' : '账匣助手'}</span>{message.content}{message.query ? <div className="query-inline">
+      {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}><span className="chat-author">{message.role === 'user' ? '你' : '小鲸老板娘'}</span>{message.content}{message.query ? <div className="query-inline">
         {message.query.breakdown.map(item => <div className="list-item" key={item.key}><span>{item.label} · {item.count} 笔</span><strong>¥{item.amount}</strong></div>)}
         {message.query.records.map(record => <Link className="list-item" to={`/records/${record.id}`} key={record.id}><span>{record.occurredOn} · {labels[record.type] ?? record.type}</span><strong>¥{record.amount}</strong></Link>)}
         {!message.query.records.length && !message.query.debts.length && !message.query.breakdown.length && message.query.total === null ? <p className="muted">没有可展示的记录，可以继续说明时间或联系人。</p> : null}
@@ -191,7 +191,7 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
       {file ? <div className="row attachment"><span className="spacer">{file.name}</span><button type="button" disabled={busy} onClick={() => { setFile(null); if (fileInput.current) fileInput.current.value = ''; }}>移除</button></div> : null}
       <label htmlFor="assistant-contact">联系人（可选）</label>
       <select id="assistant-contact" value={selectedContactId} disabled={busy} onChange={e => setSelectedContactId(e.target.value)}><option value="">自动识别 / 不指定</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}</select>
-      <label className="sr-only" htmlFor="chat-text">告诉账匣你要记什么或修改什么，可按 Ctrl+V 粘贴截图</label><textarea id="chat-text" value={text} maxLength={4000} disabled={busy} onChange={e => setText(e.target.value)} placeholder="记一笔、查花销，或 Ctrl+V 直接粘贴截图…" />
+      <label className="sr-only" htmlFor="chat-text">告诉蓝鲸账本你要记什么或修改什么，可按 Ctrl+V 粘贴截图</label><textarea id="chat-text" value={text} maxLength={4000} disabled={busy} onChange={e => setText(e.target.value)} placeholder="记一笔、查花销，或 Ctrl+V 直接粘贴截图…" />
       <div className="row"><input className="sr-only" ref={fileInput} type="file" accept=".csv,.tsv,image/png,image/jpeg,image/webp" disabled={busy} onChange={e => setFile(e.target.files?.[0] ?? null)} /><button type="button" disabled={busy} onClick={() => fileInput.current?.click()}>＋ 账单 / 截图</button><div className="spacer" /><button className="primary" disabled={busy || (!text.trim() && !file)} type="submit">{busy ? '处理中…' : '发送 ↑'}</button></div>
       <p className="muted chat-disclosure">消息和截图发送给已配置的 DeepSeek；聊天暂存于本页，刷新会清空未入账内容。附件截图会先加密保存为来源。</p>
       {error ? <p className="error" role="alert">{error}</p> : null}

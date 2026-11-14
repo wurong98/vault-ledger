@@ -28,7 +28,7 @@ export function UnlockPage({ onDone }: { onDone: () => void }) {
 
   return (
     <form className="card" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <h2>解锁账匣</h2>
+      <h2>解锁蓝鲸账本</h2>
       <p className="muted">数据在本地加密保存，输入密码后才能查看。</p>
       <p className="muted">
         连续输错 3 次后会进入冷却：1 分钟 → 1 小时 → 1 天 → 1 周 → 1 月 → 1 年，重启服务才重置。

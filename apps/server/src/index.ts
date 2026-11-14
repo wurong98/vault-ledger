@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 
   await app.listen({ host: context.config.host, port: context.config.port });
   app.log.info(
-    `LedgerBox 正在监听 http://${context.config.host}:${context.config.port}`,
+    `蓝鲸账本正在监听 http://${context.config.host}:${context.config.port}`,
   );
 }
 

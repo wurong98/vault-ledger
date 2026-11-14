@@ -49,5 +49,5 @@ export function exportCsv(inputs: RecordInput[]) {
   const quote = (value: string) => '"' + (/^[=+\-@\t\r]/.test(value) ? "'" : '') + value.replaceAll('"', '""') + '"';
   const rows = [['日期','类型','金额','币种','账户ID','转入账户ID','联系人ID','联系人姓名','支付方式','分类','商户','备注','来源ID'], ...inputs.map(r => [r.occurredOn, r.type, r.amount, r.currency, r.accountId, r.counterAccountId ?? '', r.contactId ?? '', r.contactName ?? '', r.paymentMethod ?? '', r.category ?? '', r.merchant ?? '', r.remark ?? '', r.sourceId ?? ''])];
   const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a'); a.href = url; a.download = '账匣-核对清单.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const a = document.createElement('a'); a.href = url; a.download = '蓝鲸账本-核对清单.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
