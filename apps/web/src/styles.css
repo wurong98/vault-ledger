@@ -82,6 +82,7 @@ label { display: block; font-size: 12px; font-weight: 500; color: #64746e; margi
 .chat-composer textarea { border: 0; background: transparent; padding: 8px 5px; min-height: 90px; margin-bottom: 6px; }
 .chat-composer .chat-disclosure { font-size: 10px; margin: 10px 3px 0; }
 .attachment { padding-bottom: 10px; font-size: 12px; overflow-wrap: anywhere; }
+.attachment-preview { display: block; max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; }
 .draft-list { max-height: 460px; overflow-y: auto; }
 .draft-actions { padding-top: 18px; }
 .draft-panel h2 { margin-bottom: 0; }

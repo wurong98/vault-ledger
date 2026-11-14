@@ -15,6 +15,7 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
@@ -30,6 +31,13 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
+
+  useEffect(() => {
+    if (!file?.type.startsWith('image/')) { setPreviewUrl(''); return; }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     if (!ledger) return;
@@ -158,11 +166,32 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
       <div className="draft-list">{drafts.map((row, i) => <div className="list-item" key={row.key + i}><div><strong>#{i + 1} {labels[row.input.type]} ¥{row.input.amount}</strong><div className="muted">{row.input.occurredOn} · {accounts.find(a => a.id === row.input.accountId)?.name ?? '未知账户'} · {row.input.category || '未分类'}</div>{row.input.contactName || row.input.contactId ? <div className="muted">联系人：{contacts.find(c => c.id === row.input.contactId)?.displayName ?? row.input.contactName ?? '已关联联系人'}{!row.input.contactId && !contacts.some(c => c.displayName === row.input.contactName) ? ' · 同意入账时新增' : ''}</div> : null}<label className="sr-only" htmlFor={`draft-contact-${i}`}>第{i + 1}笔联系人</label><select id={`draft-contact-${i}`} disabled={busy} value={row.input.contactId ?? ''} onChange={event => setDrafts(current => current.map((draft, index) => index !== i ? draft : { key: newIdempotencyKey(), input: { ...draft.input, contactId: event.target.value || null, contactName: event.target.value ? null : draft.input.contactName } }))}><option value="">{row.input.contactName ? `待新增：${row.input.contactName}` : '未指定联系人'}</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}</select><div className="muted">{[row.input.merchant, row.input.remark].filter(Boolean).join(' · ')}</div></div><button disabled={busy} aria-label={`移除第${i + 1}笔`} onClick={() => setDrafts(current => current.filter((_, index) => index !== i))}>移除</button></div>)}</div>
       <div className="row draft-actions"><button className="primary" disabled={busy} onClick={() => void save()}>同意并入账（{drafts.length}）</button><button disabled={busy} onClick={() => exportCsv(drafts.map(row => row.input))}>导出待核对 CSV</button></div></div> : null}
     {saved.length ? <div className="card"><p className="ok">本次已处理 {saved.length} 笔</p><button onClick={() => exportCsv(saved)}>导出本次入账 CSV</button></div> : null}
-    <form className="chat-composer card" onSubmit={event => { event.preventDefault(); void send(); }}>
+    <form className="chat-composer card" onSubmit={event => { event.preventDefault(); void send(); }} onPaste={event => {
+      if (busy) return;
+      const images = Array.from(event.clipboardData.items)
+        .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+        .map(item => item.getAsFile()).filter((item): item is File => item !== null);
+      const image = images[0] ?? Array.from(event.clipboardData.files).find(item => item.type.startsWith('image/'));
+      if (!image) return;
+      event.preventDefault();
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(image.type)) {
+        setError('请粘贴 PNG、JPEG 或 WebP 格式的截图');
+        return;
+      }
+      setFile(image);
+      setError('');
+      if (fileInput.current) fileInput.current.value = '';
+      const pastedText = event.clipboardData.getData('text/plain');
+      if (pastedText && event.target instanceof HTMLTextAreaElement) {
+        const input = event.target;
+        setText(current => (current.slice(0, input.selectionStart) + pastedText + current.slice(input.selectionEnd)).slice(0, 4000));
+      }
+    }}>
+      {previewUrl ? <img className="attachment-preview" src={previewUrl} alt="待发送的截图预览" /> : null}
       {file ? <div className="row attachment"><span className="spacer">{file.name}</span><button type="button" disabled={busy} onClick={() => { setFile(null); if (fileInput.current) fileInput.current.value = ''; }}>移除</button></div> : null}
       <label htmlFor="assistant-contact">联系人（可选）</label>
       <select id="assistant-contact" value={selectedContactId} disabled={busy} onChange={e => setSelectedContactId(e.target.value)}><option value="">自动识别 / 不指定</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}</select>
-      <label className="sr-only" htmlFor="chat-text">告诉账匣你要记什么或修改什么</label><textarea id="chat-text" value={text} maxLength={4000} disabled={busy} onChange={e => setText(e.target.value)} placeholder="记一笔、查花销，或接着上一轮聊…" />
+      <label className="sr-only" htmlFor="chat-text">告诉账匣你要记什么或修改什么，可按 Ctrl+V 粘贴截图</label><textarea id="chat-text" value={text} maxLength={4000} disabled={busy} onChange={e => setText(e.target.value)} placeholder="记一笔、查花销，或 Ctrl+V 直接粘贴截图…" />
       <div className="row"><input className="sr-only" ref={fileInput} type="file" accept=".csv,.tsv,image/png,image/jpeg,image/webp" disabled={busy} onChange={e => setFile(e.target.files?.[0] ?? null)} /><button type="button" disabled={busy} onClick={() => fileInput.current?.click()}>＋ 账单 / 截图</button><div className="spacer" /><button className="primary" disabled={busy || (!text.trim() && !file)} type="submit">{busy ? '处理中…' : '发送 ↑'}</button></div>
       <p className="muted chat-disclosure">消息和截图发送给已配置的 DeepSeek；聊天暂存于本页，刷新会清空未入账内容。附件截图会先加密保存为来源。</p>
       {error ? <p className="error" role="alert">{error}</p> : null}
