@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+data/
+vaults/
+staging/
+*.ledgerbox
+backups/
+coverage/
+.DS_Store

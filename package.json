@@ -1,0 +1,31 @@
+{
+  "name": "ledgerbox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LedgerBox（账匣）：程序开源、数据私有的个人账单管理",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "prestart": "npm run build",
+    "start": "node apps/server/dist/index.js",
+    "typecheck": "tsc -b packages/contracts apps/server && tsc --noEmit -p apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run tests/e2e",
+    "start:web": "vite --config apps/web/vite.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
