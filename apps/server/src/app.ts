@@ -13,6 +13,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import {
   createLedgerSchema,
   csvMappingSchema,
+  ledgerCsvImportSchema,
   createAccountSchema,
   createContactSchema,
   chatRecordInputSchema,
@@ -32,6 +33,7 @@ import { SessionStore, SESSION_COOKIE, type Session } from './auth/session.js';
 import { AuthThrottle } from './auth/throttle.js';
 import { VaultRepository } from './vault/store.js';
 import { LedgerService } from './domain/ledger-service.js';
+import { LedgerCsvService } from './domain/csv-service.js';
 import { SourceService } from './sources/service.js';
 import { DeepSeekClient, parseJsonLoose } from './llm/deepseek.js';
 import { ExtractionService } from './llm/extraction.js';
@@ -611,8 +613,24 @@ export async function createApp(
   app.get('/api/v1/ledgers/:id/records/export', async (request) => {
     requireUnlocked(request);
     const { id } = request.params as { id: string };
-    const query = recordListQuerySchema.parse(request.query);
-    return { records: context.ledger.listRecords(id, query, true) };
+    return { records: new LedgerCsvService(context.vault).exportRows(id) };
+  });
+
+  app.post('/api/v1/ledgers/:id/records/import/preview', async (request) => {
+    assertSameOrigin(request);
+    requireUnlocked(request);
+    const { id } = request.params as { id: string };
+    const { rows } = ledgerCsvImportSchema.parse(request.body);
+    return new LedgerCsvService(context.vault).preview(id, rows);
+  });
+
+  app.post('/api/v1/ledgers/:id/records/import', async (request) => {
+    assertSameOrigin(request);
+    requireUnlocked(request);
+    const { id } = request.params as { id: string };
+    const { rows, expectedRevision } = ledgerCsvImportSchema.parse(request.body);
+    if (expectedRevision === undefined) throw new AppError('VALIDATION_FAILED', '请先预览并确认全量覆盖');
+    return new LedgerCsvService(context.vault).replace(id, rows, expectedRevision);
   });
 
   app.post('/api/v1/ledgers/:id/records', async (request) => {

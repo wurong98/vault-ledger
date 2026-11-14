@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Contact, Ledger } from '@ledgerbox/contracts';
+import type { Contact, Ledger, LedgerCsvRow, LedgerCsvPreview } from '@ledgerbox/contracts';
 import { api } from '../api.js';
+import { downloadLedgerCsv, parseLedgerCsv } from '../csv.js';
 
 interface RecordRow {
   id: string;
@@ -34,6 +35,59 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
   const [filters, setFilters] = useState({ type: '', contactId: '', keyword: '', dateFrom: '', dateTo: '' });
   const [includeVoided, setIncludeVoided] = useState(false);
 
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
+
+  async function downloadCsv() {
+    if (!ledger) return;
+    setExporting(true);
+    setExportMessage('');
+    try {
+      const result = await api.get<{ records: LedgerCsvRow[] }>(`/ledgers/${ledger.id}/records/export`);
+      downloadLedgerCsv(result.records);
+      setExportMessage(`已发起下载，共 ${result.records.length} 笔流水`);
+    } catch (error) {
+      setExportMessage(error instanceof Error ? error.message : '导出失败，请重试');
+    } finally { setExporting(false); }
+  }
+
+  const [importRows, setImportRows] = useState<LedgerCsvRow[] | null>(null);
+  const [preview, setPreview] = useState<(LedgerCsvPreview & { ledgerId: string }) | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    setImportRows(null); setPreview(null); setImportMessage(''); setExportMessage('');
+  }, [ledger?.id]);
+
+  async function selectCsv(file: File) {
+    if (!ledger) return;
+    const ledgerId = ledger.id;
+    setImportRows(null); setPreview(null); setImportMessage(''); setImporting(true);
+    try {
+      if (file.size > 8 * 1024 * 1024) throw new Error('CSV 文件不能超过 8 MB');
+      const rows = parseLedgerCsv(await file.text());
+      const result = await api.post<LedgerCsvPreview>(`/ledgers/${ledgerId}/records/import/preview`, { rows });
+      setImportRows(rows); setPreview({ ...result, ledgerId });
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : '校验失败');
+    } finally { setImporting(false); }
+  }
+
+  async function importCsv() {
+    if (!ledger || !preview || !importRows || preview.ledgerId !== ledger.id) return;
+    setImporting(true); setImportMessage('');
+    try {
+      const result = await api.post<LedgerCsvPreview>(`/ledgers/${ledger.id}/records/import`, { rows: importRows, expectedRevision: preview.revision });
+      setImportMessage(`已全量覆盖导入 ${result.incoming} 笔流水，移除 ${result.removed} 笔文件外流水。`);
+      setImportRows(null); setPreview(null); setRefresh(value => value + 1);
+    } catch (error) {
+      setImportMessage(error instanceof Error ? error.message : '导入失败');
+      setPreview(null);
+    } finally { setImporting(false); }
+  }
+
   useEffect(() => {
     if (!ledger) return;
     const params = new URLSearchParams();
@@ -51,7 +105,7 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
       setContacts(c.contacts);
       setRecords(result.records);
     })();
-  }, [ledger, filters, includeVoided]);
+  }, [ledger, filters, includeVoided, refresh]);
 
   if (!ledger) return <div className="card">正在加载账本…</div>;
 
@@ -59,6 +113,21 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
     <>
       <div className="card">
         <h2>流水</h2>
+        <button disabled={exporting} onClick={() => void downloadCsv()}>{exporting ? '正在导出…' : '导出全部 CSV'}</button>
+        <p className="muted">全量导出当前账本全部流水（含已作废），不受下方筛选限制。</p>
+        {exportMessage ? <p role="status">{exportMessage}</p> : null}
+        <label htmlFor="import-csv">导入全量 CSV（覆盖当前账本流水）</label>
+        <input id="import-csv" type="file" accept=".csv,text/csv" disabled={importing} onChange={e => { const file = e.target.files?.[0]; if (file) void selectCsv(file); e.target.value = ''; }} />
+        <p className="muted">选择本页新版导出的文件，校验后确认覆盖。其他账本保留；截图文件和修改历史请用加密备份恢复。</p>
+        {importing ? <p role="status">正在处理…</p> : null}
+        {preview && preview.ledgerId === ledger.id ? <div role="alert">
+          <p>将覆盖「{ledger.name}」的全部流水：现有 {preview.existing} 笔 → 文件中 {preview.incoming} 笔（含已作废）；其中 {preview.removed} 笔文件外流水将移除。</p>
+          <p>当前账本的流水修改历史将清除，分录按文件重新生成。现有可用截图关联保留。</p>
+          {preview.missingSources > 0 ? <p className="error">文件中 {preview.missingSources} 笔流水的截图不在本机，导入后无法查看这些截图。</p> : null}
+          {preview.incoming === 0 ? <p className="error">文件为空，确认后将清空当前账本流水。</p> : null}
+          <div className="row"><button disabled={importing} onClick={() => void importCsv()}>确认全量覆盖导入</button><button disabled={importing} onClick={() => { setPreview(null); setImportRows(null); }}>取消</button></div>
+        </div> : null}
+        {importMessage ? <p role="status">{importMessage}</p> : null}
         <label htmlFor="filter-type">类型</label>
         <select
           id="filter-type"
