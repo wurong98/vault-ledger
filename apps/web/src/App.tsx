@@ -8,7 +8,6 @@ import { HomePage } from './pages/HomePage.js';
 import { ChatCapturePage } from './pages/ChatCapturePage.js';
 import { RecordsPage } from './pages/RecordsPage.js';
 import { RecordPage } from './pages/RecordPage.js';
-import { QueryPage } from './pages/QueryPage.js';
 import { ContactsPage } from './pages/ContactsPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 
@@ -197,10 +196,11 @@ export function App() {
 
       <Routes key={ledgerId}>
         <Route path="/" element={<HomePage ledger={currentLedger} onRefresh={refresh} />} />
-        <Route path="/capture" element={<ChatCapturePage ledger={currentLedger} />} />
+        <Route path="/assistant" element={<ChatCapturePage ledger={currentLedger} />} />
+        <Route path="/capture" element={<Navigate to="/assistant" replace />} />
         <Route path="/records" element={<RecordsPage ledger={currentLedger} />} />
         <Route path="/records/:id" element={<RecordPage ledger={currentLedger} />} />
-        <Route path="/query" element={<QueryPage ledger={currentLedger} />} />
+        <Route path="/query" element={<Navigate to="/assistant" replace />} />
         <Route path="/contacts" element={<ContactsPage ledger={currentLedger} />} />
         <Route path="/settings" element={<SettingsPage status={status} onRefresh={refresh} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -209,9 +209,8 @@ export function App() {
       <nav className="nav" aria-label="主导航">
         {[
           { to: '/', label: '首页', path: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9' },
-          { to: '/capture', label: '录入', path: 'M12 8v8m-4-4h8M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z' },
+          { to: '/assistant', label: 'AI助理', path: 'M12 8v8m-4-4h8M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z' },
           { to: '/records', label: '流水', path: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01' },
-          { to: '/query', label: '查询', path: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z' },
           { to: '/settings', label: '设置', path: 'M4 7h16M4 17h16M9 4v6m6 4v6' },
         ].map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === '/'}>

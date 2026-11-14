@@ -31,13 +31,14 @@ const TYPE_LABELS: Record<string, string> = {
 export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
-  const [filters, setFilters] = useState({ type: '', keyword: '', dateFrom: '', dateTo: '' });
+  const [filters, setFilters] = useState({ type: '', contactId: '', keyword: '', dateFrom: '', dateTo: '' });
   const [includeVoided, setIncludeVoided] = useState(false);
 
   useEffect(() => {
     if (!ledger) return;
     const params = new URLSearchParams();
     if (filters.type) params.set('type', filters.type);
+    if (filters.contactId) params.set('contactId', filters.contactId);
     if (filters.keyword) params.set('keyword', filters.keyword);
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
     if (filters.dateTo) params.set('dateTo', filters.dateTo);
@@ -69,6 +70,17 @@ export function RecordsPage({ ledger }: { ledger: Ledger | null }) {
             <option key={value} value={value}>
               {label}
             </option>
+          ))}
+        </select>
+        <label htmlFor="filter-contact">联系人</label>
+        <select
+          id="filter-contact"
+          value={filters.contactId}
+          onChange={(e) => setFilters({ ...filters, contactId: e.target.value })}
+        >
+          <option value="">全部联系人</option>
+          {contacts.map((contact) => (
+            <option key={contact.id} value={contact.id}>{contact.displayName}</option>
           ))}
         </select>
         <label htmlFor="filter-keyword">关键词</label>

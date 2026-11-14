@@ -8,6 +8,7 @@ export function UnlockPage({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -26,7 +27,7 @@ export function UnlockPage({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div className="card">
+    <form className="card" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <h2>解锁账匣</h2>
       <p className="muted">数据在本地加密保存，输入密码后才能查看。</p>
       <p className="muted">
@@ -46,9 +47,9 @@ export function UnlockPage({ onDone }: { onDone: () => void }) {
           冷却剩余约 {Math.ceil(retryAfter / 60)} 分钟（{retryAfter} 秒）。
         </p>
       ) : null}
-      <button className="primary" onClick={() => void submit()} disabled={busy}>
+      <button className="primary" type="submit" disabled={busy}>
         {busy ? '解锁中…' : '解锁'}
       </button>
-    </div>
+    </form>
   );
 }

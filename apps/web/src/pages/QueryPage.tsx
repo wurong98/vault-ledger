@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Ledger } from '@ledgerbox/contracts';
 import { api, ApiError } from '../api.js';
 
-interface QueryResponse {
+export interface QueryResponse {
   intent: {
     operation: string;
     filters: Record<string, string | null>;
