@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api.js';
 import type { Status } from '../App.js';
 
@@ -129,6 +130,9 @@ export function SettingsPage({
   return (
     <>
       <div className="page-heading"><span className="eyebrow">PREFERENCES</span><h2>设置</h2><p>让账匣更懂你的记账习惯</p></div>
+      <div className="card">
+        <h2>账本管理</h2><p className="muted">管理当前账本的联系人，方便核对借还款。</p><Link to="/contacts">管理联系人 →</Link>
+      </div>
       <div className="card">
         <h2>模型设置</h2>
         <p className="muted">

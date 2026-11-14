@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Ledger } from '@ledgerbox/contracts';
+import type { Contact, Ledger } from '@ledgerbox/contracts';
 import { api } from '../api.js';
 
 interface Summary {
@@ -26,6 +26,8 @@ interface RecordRow {
   type: string;
   amount: string;
   occurredOn: string;
+  contactId: string | null;
+  paymentMethod: string | null;
   category: string | null;
   merchant: string | null;
   status: string;
@@ -48,6 +50,7 @@ export function HomePage({
   ledger: Ledger | null;
   onRefresh: () => void;
 }) {
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
@@ -64,6 +67,8 @@ export function HomePage({
         api.get<{ debts: Debt[] }>(`/ledgers/${ledger.id}/debts`),
         api.get<{ records: RecordRow[] }>(`/ledgers/${ledger.id}/records?limit=8`),
       ]);
+      const c = await api.get<{ contacts: Contact[] }>(`/ledgers/${ledger.id}/contacts`);
+      setContacts(c.contacts);
       setSummary(s.summary);
       setDebts(d.debts);
       setRecords(r.records);
@@ -158,6 +163,8 @@ export function HomePage({
             <Link className="list-item" to={`/records/${record.id}`} key={record.id}>
               <span>
                 {record.occurredOn} · {TYPE_LABELS[record.type] ?? record.type}
+                {record.contactId ? ` · ${contacts.find(c => c.id === record.contactId)?.displayName ?? '联系人不可用'}` : ['lend','borrow','repayment_received','repayment_paid'].includes(record.type) ? ' · 未关联联系人' : ''}
+                {record.paymentMethod ? ` · ${record.paymentMethod}` : ''}
                 {record.merchant ? ` · ${record.merchant}` : ''}
                 {record.category ? ` · ${record.category}` : ''}
               </span>

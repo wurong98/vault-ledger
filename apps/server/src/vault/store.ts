@@ -157,6 +157,8 @@ export class VaultRepository {
       },
     ];
 
+    manifest.accounts = [{ id: randomUUID(), ledgerId: manifest.ledgers[0]!.id, name: '日常资金', paymentMethod: null, active: true }];
+
     await writeJsonFile(join(genDir, 'header.json'), header);
     this.generationId = generationId;
     try {

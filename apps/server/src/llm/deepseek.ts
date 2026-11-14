@@ -17,6 +17,7 @@ export interface DeepSeekOptions {
   timeoutMs: number;
   maxConcurrency: number;
   getApiKey: () => string | null;
+  getModel?: () => string;
 }
 
 /**
@@ -34,7 +35,7 @@ export class DeepSeekClient {
   constructor(private readonly options: DeepSeekOptions) {}
 
   get model(): string {
-    return this.options.model;
+    return this.options.getModel?.() ?? this.options.model;
   }
 
   private async acquire(): Promise<void> {
@@ -59,7 +60,7 @@ export class DeepSeekClient {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const body: Record<string, unknown> = {
-        model: this.options.model,
+        model: this.model,
         messages,
         stream: false,
       };

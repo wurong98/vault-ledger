@@ -79,9 +79,23 @@ export class LedgerService {
     };
     await this.vault.commit(null, (draft) => {
       draft.ledgers.push(ledger);
+      draft.accounts.push({ id: randomUUID(), ledgerId: ledger.id, name: '日常资金', paymentMethod: null, active: true });
       draft.auditEvents.push(this.audit('ledger.create', ledger.id, draft.revision));
     });
     return ledger;
+  }
+
+  /** 为旧版本没有账户的账本补齐默认账户，不修改已有账户。 */
+  async ensureDefaultAccounts(): Promise<void> {
+    if (!this.manifest.ledgers.some(ledger => !this.manifest.accounts.some(account => account.ledgerId === ledger.id))) return;
+    await this.vault.commit(null, draft => {
+      for (const ledger of draft.ledgers) {
+        if (draft.accounts.some(account => account.ledgerId === ledger.id)) continue;
+        const account = { id: randomUUID(), ledgerId: ledger.id, name: '日常资金', paymentMethod: null, active: true };
+        draft.accounts.push(account);
+        draft.auditEvents.push(this.audit('account.create', account.id, draft.revision, ledger.id));
+      }
+    });
   }
 
   async createAccount(
@@ -110,17 +124,41 @@ export class LedgerService {
     remark: string | null,
   ): Promise<Contact> {
     this.requireLedger(ledgerId);
-    const contact: Contact = {
-      id: randomUUID(),
-      ledgerId,
-      displayName,
-      remark,
-    };
+    displayName = displayName.trim();
+    if (!displayName) throw new AppError('VALIDATION_FAILED', '请输入联系人姓名');
+    let contact: Contact = { id: randomUUID(), ledgerId, displayName, remark };
     await this.vault.commit(null, (draft) => {
+      const existing = draft.contacts.find(c => c.ledgerId === ledgerId && c.displayName.trim() === displayName);
+      if (existing) { contact = existing; return; }
       draft.contacts.push(contact);
       draft.auditEvents.push(this.audit('contact.create', contact.id, draft.revision));
     });
     return contact;
+  }
+
+  async updateContact(ledgerId: string, contactId: string, displayName: string, remark: string | null): Promise<Contact> {
+    this.requireLedger(ledgerId);
+    displayName = displayName.trim();
+    if (!displayName) throw new AppError('VALIDATION_FAILED', '请输入联系人姓名');
+    let result: Contact | undefined;
+    await this.vault.commit(null, draft => {
+      const contact = draft.contacts.find(c => c.id === contactId && c.ledgerId === ledgerId);
+      if (!contact) throw new AppError('NOT_FOUND', '联系人不存在');
+      if (draft.contacts.some(c => c.ledgerId === ledgerId && c.id !== contactId && c.displayName.trim() === displayName)) throw new AppError('VALIDATION_FAILED', '已存在同名联系人');
+      contact.displayName = displayName; contact.remark = remark; result = contact;
+      draft.auditEvents.push(this.audit('contact.update', contactId, draft.revision, ledgerId));
+    });
+    return result!;
+  }
+
+  async deleteContact(ledgerId: string, contactId: string): Promise<void> {
+    this.requireLedger(ledgerId);
+    await this.vault.commit(null, draft => {
+      if (!draft.contacts.some(c => c.id === contactId && c.ledgerId === ledgerId)) throw new AppError('NOT_FOUND', '联系人不存在');
+      if (draft.records.some(r => r.contactId === contactId)) throw new AppError('VALIDATION_FAILED', '该联系人已关联账单，请保留以便对账');
+      draft.contacts = draft.contacts.filter(c => c.id !== contactId);
+      draft.auditEvents.push(this.audit('contact.delete', contactId, draft.revision, ledgerId));
+    });
   }
 
   /* ---------- 记录 ---------- */

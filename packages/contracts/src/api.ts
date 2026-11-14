@@ -115,6 +115,11 @@ export const recordInputSchema = z.object({
 });
 export type RecordInput = z.infer<typeof recordInputSchema>;
 
+/** 聊天草稿允许待创建联系人，确认时再解析为真实ID。 */
+export const chatRecordInputSchema = recordInputSchema.extend({ contactName: z.string().trim().min(1).max(60).nullable().optional() });
+export type ChatRecordInput = z.infer<typeof chatRecordInputSchema>;
+
+
 /**
  * 修订补丁：所有字段都是可选且**不带默认值**。
  * 若沿用 recordInputSchema.partial()，缺省字段会被填成 null，

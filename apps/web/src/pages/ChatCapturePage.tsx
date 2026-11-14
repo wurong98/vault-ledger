@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CsvMapping, Ledger, RecordInput } from '@ledgerbox/contracts';
+import { Link } from 'react-router-dom';
+import type { CsvMapping, Ledger, ChatRecordInput as RecordInput, Contact } from '@ledgerbox/contracts';
 import { api, newIdempotencyKey } from '../api.js';
 import { convertCsv, exportCsv, parseCsv } from '../csv.js';
 import { CapturePage } from './CapturePage.js';
@@ -16,6 +17,7 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [accountId, setAccountId] = useState('');
   const [csvRows, setCsvRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
@@ -34,6 +36,7 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
       if (!active) return;
       setAccounts(result.accounts); setAccountId(result.accounts[0]?.id ?? '');
     }).catch(err => { if (active) setError(err instanceof Error ? err.message : '加载账户失败'); });
+    void api.get<{ contacts: Contact[] }>(`/ledgers/${ledger.id}/contacts`).then(result => { if (active) setContacts(result.contacts); }).catch(() => {});
     return () => { active = false; };
   }, [ledger]);
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [messages, busy]);
@@ -111,12 +114,14 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
       setDrafts(current => current.slice(completed));
       assistant(`已入账 ${result.imported} 笔，跳过 ${result.skipped} 笔已导入记录。${result.error ? '剩余记录保留在待入账清单，可重试。' : '可以继续整理下一份账单，也可以导出本次核对结果。'}`);
       if (result.error) setError(result.error);
+      const updated = await api.get<{ contacts: Contact[] }>(`/ledgers/${ledger.id}/contacts`);
+      setContacts(updated.contacts);
     } catch (err) { setError(err instanceof Error ? err.message : '保存失败，可重试'); }
     finally { lock.current = false; setBusy(false); }
   };
 
   return <>
-    <div className="page-heading"><span className="eyebrow">CHAT TO LEDGER</span><h2>聊着，把账记好</h2><p>发账单 · 随时纠正 · 同意后入账</p></div>
+    <div className="page-heading"><span className="eyebrow">CHAT TO LEDGER</span><h2>聊着，把账记好</h2><p>发账单 · 随时纠正 · 同意后入账</p><Link to="/contacts">管理联系人 →</Link></div>
     {!accounts.length ? <form className="card" onSubmit={event => {
       event.preventDefault();
       if (lock.current || !accountName.trim()) return;
@@ -138,7 +143,7 @@ export function ChatCapturePage({ ledger }: { ledger: Ledger | null }) {
     </div> : null}
     {csvErrors.length ? <details className="card"><summary>有 {csvErrors.length} 行未纳入，请核对</summary>{csvErrors.map((message, i) => <p className="error" key={i}>{message}</p>)}</details> : null}
     {drafts.length ? <div className="card draft-panel"><div className="row"><h2 className="spacer">待入账 · {drafts.length} 笔</h2><span className="badge">尚未保存</span></div><p className="muted">继续聊天可修改清单；移除按钮仅移除待入账记录。</p>
-      <div className="draft-list">{drafts.map((row, i) => <div className="list-item" key={row.key + i}><div><strong>#{i + 1} {labels[row.input.type]} ¥{row.input.amount}</strong><div className="muted">{row.input.occurredOn} · {accounts.find(a => a.id === row.input.accountId)?.name ?? '未知账户'} · {row.input.category || '未分类'}</div><div className="muted">{[row.input.merchant, row.input.remark].filter(Boolean).join(' · ')}</div></div><button disabled={busy} aria-label={`移除第${i + 1}笔`} onClick={() => setDrafts(current => current.filter((_, index) => index !== i))}>移除</button></div>)}</div>
+      <div className="draft-list">{drafts.map((row, i) => <div className="list-item" key={row.key + i}><div><strong>#{i + 1} {labels[row.input.type]} ¥{row.input.amount}</strong><div className="muted">{row.input.occurredOn} · {accounts.find(a => a.id === row.input.accountId)?.name ?? '未知账户'} · {row.input.category || '未分类'}</div>{row.input.contactName || row.input.contactId ? <div className="muted">联系人：{contacts.find(c => c.id === row.input.contactId)?.displayName ?? row.input.contactName ?? '已关联联系人'}{!row.input.contactId && !contacts.some(c => c.displayName === row.input.contactName) ? ' · 同意入账时新增' : ''}</div> : null}<div className="muted">{[row.input.merchant, row.input.remark].filter(Boolean).join(' · ')}</div></div><button disabled={busy} aria-label={`移除第${i + 1}笔`} onClick={() => setDrafts(current => current.filter((_, index) => index !== i))}>移除</button></div>)}</div>
       <div className="row draft-actions"><button className="primary" disabled={busy} onClick={() => void save()}>同意并入账（{drafts.length}）</button><button disabled={busy} onClick={() => exportCsv(drafts.map(row => row.input))}>导出待核对 CSV</button></div></div> : null}
     {saved.length ? <div className="card"><p className="ok">本次已处理 {saved.length} 笔</p><button onClick={() => exportCsv(saved)}>导出本次入账 CSV</button></div> : null}
     <form className="chat-composer card" onSubmit={event => { event.preventDefault(); void send(); }}>

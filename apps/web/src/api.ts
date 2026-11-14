@@ -36,6 +36,7 @@ async function request<T>(
     } catch {
       body = {};
     }
+    if (body.code === 'LOCKED') window.dispatchEvent(new Event('ledgerbox:locked'));
     throw new ApiError(
       body.code ?? 'INTERNAL_ERROR',
       body.message ?? `请求失败（${response.status}）`,

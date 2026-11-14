@@ -9,6 +9,7 @@ import { ChatCapturePage } from './pages/ChatCapturePage.js';
 import { RecordsPage } from './pages/RecordsPage.js';
 import { RecordPage } from './pages/RecordPage.js';
 import { QueryPage } from './pages/QueryPage.js';
+import { ContactsPage } from './pages/ContactsPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 
 export interface Status {
@@ -44,7 +45,7 @@ export function App() {
     try {
       const next = await api.get<Status>('/status');
       setStatus(next);
-      setError(null);
+      setError(next.locked && next.setupState !== 'uninitialized' ? '当前设备尚未解锁或会话已失效，请输入原密码继续。' : null);
       if (!next.locked && next.setupState !== 'uninitialized') {
         const data = await api.get<{ ledgers: Ledger[] }>('/ledgers');
         setLedgers(data.ledgers);
@@ -56,6 +57,9 @@ export function App() {
         });
       }
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'LOCKED') {
+        setStatus(current => current ? { ...current, locked: true } : current);
+      }
       setError(err instanceof ApiError ? err.message : '无法连接服务');
     }
   }, []);
@@ -63,6 +67,15 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const onLocked = () => {
+      setStatus(current => current ? { ...current, locked: true } : current);
+      setError('会话已失效，请重新输入密码解锁。已保存的数据不受影响。');
+    };
+    window.addEventListener('ledgerbox:locked', onLocked);
+    return () => window.removeEventListener('ledgerbox:locked', onLocked);
+  }, []);
 
   const currentLedger = useMemo(
     () => ledgers.find((l) => l.id === ledgerId) ?? null,
@@ -123,6 +136,7 @@ export function App() {
   if (status.locked) {
     return (
       <div className="app">
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <UnlockPage onDone={() => void refresh()} />
       </div>
     );
@@ -171,6 +185,8 @@ export function App() {
         </form>
       ) : null}
 
+      {error ? <div className="card" role="alert"><p className="error">{error}</p><button onClick={() => void refresh()}>重新加载账本</button></div> : null}
+
       {!status.llmConfigured ? (
         <div className="card">
           <p className="muted">
@@ -185,6 +201,7 @@ export function App() {
         <Route path="/records" element={<RecordsPage ledger={currentLedger} />} />
         <Route path="/records/:id" element={<RecordPage ledger={currentLedger} />} />
         <Route path="/query" element={<QueryPage ledger={currentLedger} />} />
+        <Route path="/contacts" element={<ContactsPage ledger={currentLedger} />} />
         <Route path="/settings" element={<SettingsPage status={status} onRefresh={refresh} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
