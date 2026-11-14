@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import type { Ledger } from '@ledgerbox/contracts';
 import { api, ApiError } from './api.js';
 import { SetupPage } from './pages/SetupPage.js';
 import { UnlockPage } from './pages/UnlockPage.js';
 import { HomePage } from './pages/HomePage.js';
-import { CapturePage } from './pages/CapturePage.js';
+import { ChatCapturePage } from './pages/ChatCapturePage.js';
 import { RecordsPage } from './pages/RecordsPage.js';
 import { RecordPage } from './pages/RecordPage.js';
 import { QueryPage } from './pages/QueryPage.js';
@@ -28,6 +28,11 @@ export interface Status {
 const LEDGER_KEY = 'ledgerbox.currentLedger';
 
 export function App() {
+  const navigate = useNavigate();
+  const [showCreateLedger, setShowCreateLedger] = useState(false);
+  const [ledgerName, setLedgerName] = useState('');
+  const [creatingLedger, setCreatingLedger] = useState(false);
+  const [ledgerError, setLedgerError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [ledgers, setLedgers] = useState<Ledger[]>([]);
   const [ledgerId, setLedgerId] = useState<string | null>(
@@ -67,6 +72,33 @@ export function App() {
   const switchLedger = (id: string) => {
     localStorage.setItem(LEDGER_KEY, id);
     setLedgerId(id);
+    navigate('/');
+  };
+
+  const createLedger = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creatingLedger) return;
+    const name = ledgerName.trim();
+    if (!name) {
+      setLedgerError('请输入账本名称');
+      return;
+    }
+    setCreatingLedger(true);
+    setLedgerError(null);
+    try {
+      const { ledger } = await api.post<{ ledger: Ledger }>('/ledgers', {
+        name,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+      });
+      setLedgers((current) => [...current, ledger]);
+      switchLedger(ledger.id);
+      setShowCreateLedger(false);
+      setLedgerName('');
+    } catch (err) {
+      setLedgerError(err instanceof ApiError ? err.message : '创建失败，请重试');
+    } finally {
+      setCreatingLedger(false);
+    }
   };
 
   if (!status) {
@@ -103,17 +135,41 @@ export function App() {
         <div className="spacer" />
         <select
           value={ledgerId ?? ''}
-          onChange={(event) => switchLedger(event.target.value)}
+          onChange={(event) => {
+            if (event.target.value === '__new__') {
+              setShowCreateLedger(true);
+              setLedgerError(null);
+            } else {
+              switchLedger(event.target.value);
+              setShowCreateLedger(false);
+            }
+          }}
           style={{ width: 'auto', marginBottom: 0 }}
           aria-label="切换账本"
         >
+          {!ledgerId ? <option value="">选择账本</option> : null}
           {ledgers.map((ledger) => (
             <option key={ledger.id} value={ledger.id}>
               {ledger.name}
             </option>
           ))}
+          <option value="__new__">＋ 新建账本</option>
         </select>
       </header>
+
+      {showCreateLedger ? (
+        <form className="card ledger-create" onSubmit={(event) => void createLedger(event)} aria-labelledby="create-ledger-title">
+          <h2 id="create-ledger-title">新建账本</h2>
+          <p className="muted">生活、旅行或工作，分开记录更清晰。</p>
+          <label htmlFor="new-ledger-name">账本名称</label>
+          <input id="new-ledger-name" value={ledgerName} onChange={(event) => setLedgerName(event.target.value)} placeholder="例如：日常生活" maxLength={60} autoFocus disabled={creatingLedger} required />
+          <div className="row">
+            <button className="primary" type="submit" disabled={creatingLedger}>{creatingLedger ? '创建中…' : '创建账本'}</button>
+            <button type="button" disabled={creatingLedger} onClick={() => setShowCreateLedger(false)}>取消</button>
+          </div>
+          {ledgerError ? <p className="error" role="alert">{ledgerError}</p> : null}
+        </form>
+      ) : null}
 
       {!status.llmConfigured ? (
         <div className="card">
@@ -123,9 +179,9 @@ export function App() {
         </div>
       ) : null}
 
-      <Routes>
+      <Routes key={ledgerId}>
         <Route path="/" element={<HomePage ledger={currentLedger} onRefresh={refresh} />} />
-        <Route path="/capture" element={<CapturePage ledger={currentLedger} />} />
+        <Route path="/capture" element={<ChatCapturePage ledger={currentLedger} />} />
         <Route path="/records" element={<RecordsPage ledger={currentLedger} />} />
         <Route path="/records/:id" element={<RecordPage ledger={currentLedger} />} />
         <Route path="/query" element={<QueryPage ledger={currentLedger} />} />

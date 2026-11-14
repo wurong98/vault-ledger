@@ -68,5 +68,5 @@ export const api = {
 };
 
 export function newIdempotencyKey(): string {
-  return `idem-${crypto.randomUUID()}`;
+  return `idem-${Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')}`;
 }

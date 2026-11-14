@@ -108,9 +108,17 @@ export class VaultRepository {
 
   /* ---------- 初始化与解锁 ---------- */
 
+  /** 启动时恢复存储代指针，无需解密账单。 */
+  async loadExisting(): Promise<void> {
+    this.generationId = await this.readCurrentGeneration();
+  }
+
   async initialize(password: string, ledgerName: string, timezone: string): Promise<void> {
     await ensureDir(this.dataDir);
     await this.acquireDirectoryLock();
+    if (this.generationId || await this.readCurrentGeneration()) {
+      throw new AppError('SETUP_ALREADY_DONE', '数据空间已初始化，请直接解锁');
+    }
 
     const generationId = randomUUID();
     const genDir = join(this.dataDir, 'vaults', generationId);
@@ -213,9 +221,11 @@ export class VaultRepository {
   private async readCurrentGeneration(): Promise<string | null> {
     try {
       const value = (await readFile(join(this.dataDir, 'CURRENT'), 'utf8')).trim();
-      return value || null;
-    } catch {
-      return null;
+      if (!value) throw new AppError('STORAGE_LOCKED', '数据空间指针为空，请检查存储目录');
+      return value;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
     }
   }
 

@@ -109,3 +109,22 @@ describe('加密存储', () => {
     }
   });
 });
+
+describe('重启保护', () => {
+  it('新实例初始化不能覆盖已有存储代', async () => {
+    const dir = await makeTempDir();
+    try {
+      const first = new VaultRepository(dir);
+      await first.initialize(PASSWORD, '已有账本', 'Asia/Shanghai');
+      const current = await readFile(join(dir, 'CURRENT'), 'utf8');
+      const reopened = new VaultRepository(dir);
+      await reopened.loadExisting();
+      expect(reopened.currentGenerationId).toBe(first.currentGenerationId);
+      expect(reopened.isUnlocked).toBe(false);
+      const bypass = new VaultRepository(dir);
+      await expect(bypass.initialize('new-password', '新账本', 'Asia/Shanghai')).rejects.toMatchObject({ code: 'SETUP_ALREADY_DONE' });
+      expect(await readFile(join(dir, 'CURRENT'), 'utf8')).toBe(current);
+      expect((await reopened.unlock(PASSWORD)).ledgers[0]?.name).toBe('已有账本');
+    } finally { await removeDir(dir); }
+  });
+});

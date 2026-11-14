@@ -1,0 +1,41 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { createApp } from '../../apps/server/src/app.js';
+import { loadConfig } from '../../apps/server/src/config.js';
+import { makeTempDir, removeDir, startMockDeepSeek } from '../helpers/mock-llm.js';
+
+describe('聊天核对与同意入账', () => {
+  let cleanup: (() => Promise<void>) | undefined;
+  afterEach(async () => { await cleanup?.(); });
+  it('聊天只修改候选，明确确认才保存，重复确认幂等且跨账本拒绝', async () => {
+    const dir = await makeTempDir();
+    let reply: unknown = {};
+    const mock = await startMockDeepSeek(() => ({ content: JSON.stringify(reply) }));
+    const config = loadConfig();
+    const { app, context } = await createApp({ ...config, dataDir: dir, llm: { ...config.llm, baseUrl: mock.url, envApiKey: 'test' } });
+    cleanup = async () => { await app.close(); await mock.close(); await removeDir(dir); };
+    const setup = await app.inject({ method: 'POST', url: '/api/v1/setup', payload: { password: 'password123', passwordConfirmation: 'password123', ledgerName: '个人' } });
+    const headers = { cookie: String(setup.headers['set-cookie']).split(';')[0]! };
+    const ledgerId = context.ledger.listLedgers()[0]!.id;
+    const account = await context.ledger.createAccount(ledgerId, '现金', null);
+    const input = { type: 'expense', amount: '28.00', currency: 'CNY', occurredOn: '2026-11-14', accountId: account.id, counterAccountId: null, contactId: null, paymentMethod: null, merchant: null, category: '餐饮', remark: null, sourceId: null };
+    reply = { reply: '午饭28元，请核对', drafts: [input] };
+    const chat = await app.inject({ method: 'POST', url: `/api/v1/ledgers/${ledgerId}/chat`, headers, payload: { messages: [{ role: 'user', content: '午饭28元' }], drafts: [] } });
+    expect(chat.statusCode).toBe(200);
+    expect(context.vault.manifest.records).toHaveLength(0);
+    input.amount = '26.00'; reply = { reply: '已改成26元', drafts: [input] };
+    const revised = await app.inject({ method: 'POST', url: `/api/v1/ledgers/${ledgerId}/chat`, headers, payload: { messages: [{ role: 'user', content: '改成26元' }], drafts: chat.json().drafts } });
+    expect(revised.json().drafts[0].amount).toBe('26.00');
+    expect(context.vault.manifest.records).toHaveLength(0);
+    const confirm = () => app.inject({ method: 'POST', url: `/api/v1/ledgers/${ledgerId}/drafts/confirm`, headers, payload: { rows: [{ key: 'stable-file-row-1', input }] } });
+    expect((await confirm()).json()).toMatchObject({ imported: 1, skipped: 0 });
+    expect((await confirm()).json()).toMatchObject({ imported: 0, skipped: 1 });
+    expect(context.vault.manifest.records).toHaveLength(1);
+    const other = await context.ledger.createLedger('别的', 'Asia/Shanghai');
+    const denied = await app.inject({ method: 'POST', url: `/api/v1/ledgers/${other.id}/drafts/confirm`, headers, payload: { rows: [{ key: 'another-row', input }] } });
+    expect(denied.statusCode).toBe(400);
+    reply = { reply: '错误日期', drafts: [{ ...input, occurredOn: '2026-02-30' }] };
+    const invalid = await app.inject({ method: 'POST', url: `/api/v1/ledgers/${ledgerId}/chat`, headers, payload: { messages: [{ role: 'user', content: '日期错了' }], drafts: [] } });
+    expect(invalid.statusCode).not.toBe(200);
+    expect(context.vault.manifest.records).toHaveLength(1);
+  });
+});
