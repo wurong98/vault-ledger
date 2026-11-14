@@ -82,6 +82,21 @@ describe('HTTP 接口', () => {
     await removeDir(dir);
   });
 
+  it('DHCP 地址变化后允许当前访问地址，拒绝其他网站来源', async () => {
+    for (const host of ['192.168.31.242:8000', '192.168.31.99:8000']) {
+      const response = await app.inject({
+        method: 'POST', url: '/api/v1/unlock',
+        headers: { host, origin: `http://${host}` }, payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+    }
+    const response = await app.inject({
+      method: 'POST', url: '/api/v1/unlock',
+      headers: { host: '192.168.31.242:8000', origin: 'http://other.example' }, payload: {},
+    });
+    expect(response.statusCode).toBe(403);
+  });
+
   const withCookie = <T extends { headers?: Record<string, string> }>(payload: T): T => {
     payload.headers = { ...(payload.headers ?? {}), cookie };
     return payload;

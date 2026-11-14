@@ -64,7 +64,7 @@ bash scripts/install-service.sh
 APP_ORIGIN=http://192.168.31.242:8000 bash scripts/install-service.sh
 ```
 
-支持通过 `PORT` 和绝对路径 `DATA_DIR` 自定义端口及数据目录。服务保存安装时的 Node.js 路径和访问地址；更换 Node.js 路径、电脑 IP 或拉取代码更新后，重新运行脚本即可。建议在路由器中固定电脑的 IP。脚本不会自动修改防火墙规则。
+支持通过 `PORT` 和绝对路径 `DATA_DIR` 自定义端口及数据目录。默认监听所有网卡，按当前浏览器访问地址校验请求，支持 DHCP，IP 变化后使用新 IP 访问即可，无需重装服务。安装完成显示的地址仅供参考。更换 Node.js 路径或拉取代码更新后，重新运行脚本即可。脚本不会自动修改防火墙规则。
 
 ```bash
 systemctl status ledgerbox             # 查看状态

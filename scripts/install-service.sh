@@ -71,7 +71,7 @@ ExecStart=$(unit_quote "$node_bin") $(unit_quote "$project_dir/apps/server/dist/
 Environment="NODE_ENV=production"
 Environment="HOST=0.0.0.0"
 Environment="PORT=$port"
-Environment=$(unit_quote "APP_ORIGIN=$origin")
+$(if [[ -n "${APP_ORIGIN:-}" ]]; then printf 'Environment=%s' "$(unit_quote "APP_ORIGIN=$APP_ORIGIN")"; fi)
 Environment=$(unit_quote "DATA_DIR=$data_dir")
 Restart=on-failure
 RestartSec=5

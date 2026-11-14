@@ -204,7 +204,8 @@ export async function createApp(
   const assertSameOrigin = (request: FastifyRequest): void => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin && origin !== config.appOrigin) {
+    const requestOrigin = `${request.protocol}://${request.host}`;
+    if (origin && origin !== requestOrigin && origin !== config.appOrigin) {
       throw new AppError('FORBIDDEN', '跨站请求被拒绝');
     }
   };
@@ -605,6 +606,13 @@ export async function createApp(
     const { id } = request.params as { id: string };
     const query = recordListQuerySchema.parse(request.query);
     return { records: context.ledger.listRecords(id, query) };
+  });
+
+  app.get('/api/v1/ledgers/:id/records/export', async (request) => {
+    requireUnlocked(request);
+    const { id } = request.params as { id: string };
+    const query = recordListQuerySchema.parse(request.query);
+    return { records: context.ledger.listRecords(id, query, true) };
   });
 
   app.post('/api/v1/ledgers/:id/records', async (request) => {
