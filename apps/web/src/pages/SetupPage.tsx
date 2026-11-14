@@ -6,16 +6,33 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
   const [confirmation, setConfirmation] = useState('');
   const [ledgerName, setLedgerName] = useState('个人');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
+    if (password.length < 6) {
+      setFieldErrors({ password: '密码至少 6 个字符' });
+      setError(null);
+      return;
+    }
+    if (password !== confirmation) {
+      setFieldErrors({ passwordConfirmation: '两次输入的密码不一致' });
+      setError(null);
+      return;
+    }
     setBusy(true);
     setError(null);
+    setFieldErrors({});
     try {
       await api.post('/setup', { password, passwordConfirmation: confirmation, ledgerName });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '初始化失败');
+      if (err instanceof ApiError) {
+        setError(err.message);
+        if (err.fields) setFieldErrors(err.fields);
+      } else {
+        setError('初始化失败');
+      }
     } finally {
       setBusy(false);
     }
@@ -27,7 +44,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
       <p className="muted">
         设置解锁密码并创建第一个账本。密码不上传任何服务器（包括模型服务），本项目不提供密码找回。
       </p>
-      <label htmlFor="password">密码（至少 12 个字符）</label>
+      <label htmlFor="password">密码（至少 6 个字符）</label>
       <input
         id="password"
         type="password"
@@ -49,7 +66,12 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
         value={ledgerName}
         onChange={(e) => setLedgerName(e.target.value)}
       />
+      {fieldErrors.password ? <p className="error">{fieldErrors.password}</p> : null}
+      {fieldErrors.passwordConfirmation ? (
+        <p className="error">{fieldErrors.passwordConfirmation}</p>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
+      <p className="muted">当前密码长度：{password.length} / 至少 6</p>
       <button className="primary" onClick={() => void submit()} disabled={busy}>
         {busy ? '正在初始化…' : '创建账本并加密数据空间'}
       </button>

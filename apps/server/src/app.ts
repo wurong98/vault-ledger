@@ -23,9 +23,11 @@ import {
   unlockRequestSchema,
   uploadSourceSchema,
 } from '@ledgerbox/contracts';
+import { ZodError } from 'zod';
 import { AppError } from './errors.js';
 import { loadConfig, publicConfig, type AppConfig } from './config.js';
 import { SessionStore, SESSION_COOKIE, type Session } from './auth/session.js';
+import { AuthThrottle } from './auth/throttle.js';
 import { VaultRepository } from './vault/store.js';
 import { LedgerService } from './domain/ledger-service.js';
 import { SourceService } from './sources/service.js';
@@ -63,6 +65,8 @@ export interface AppContext {
   client: DeepSeekClient;
   plans: Map<string, RestorePlan>;
   archives: Map<string, ArchiveEntry>;
+  unlockThrottle: AuthThrottle;
+  backupThrottle: AuthThrottle;
   stagingDir: string;
 }
 
@@ -104,6 +108,8 @@ export async function createApp(
     client,
     plans: new Map(),
     archives: new Map(),
+    unlockThrottle: new AuthThrottle('解锁密码'),
+    backupThrottle: new AuthThrottle('备份密码'),
     stagingDir,
   };
 
@@ -130,6 +136,17 @@ export async function createApp(
     const requestId = String(request.id);
     if (error instanceof AppError) {
       reply.status(error.status).send(error.toBody(requestId));
+      return;
+    }
+    // 契约校验失败：返回 400 与安全的字段提示，不回显原始请求。
+    if (error instanceof ZodError) {
+      const fields: Record<string, string> = {};
+      for (const issue of error.issues) {
+        const key = issue.path.join('.') || '_';
+        if (!fields[key]) fields[key] = issue.message;
+      }
+      const appError = new AppError('VALIDATION_FAILED', '提交的内容不符合要求', fields);
+      reply.status(appError.status).send(appError.toBody(requestId));
       return;
     }
     const status = (error as { statusCode?: number }).statusCode ?? 500;
@@ -236,7 +253,18 @@ export async function createApp(
   app.post('/api/v1/unlock', async (request, reply) => {
     assertSameOrigin(request);
     const body = unlockRequestSchema.parse(request.body);
-    const manifest = await context.vault.unlock(body.password);
+    // 冷却中直接拒绝，不消耗尝试次数。
+    context.unlockThrottle.assertAllowed();
+    let manifest;
+    try {
+      manifest = await context.vault.unlock(body.password);
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'INVALID_PASSWORD_OR_BACKUP') {
+        context.unlockThrottle.recordFailure();
+      }
+      throw error;
+    }
+    context.unlockThrottle.recordSuccess();
     const session = context.sessions.create();
     setSessionCookie(reply, session.id);
     return { ok: true, setupState: manifest.setupState };
@@ -591,16 +619,29 @@ export async function createApp(
     if (!file) throw new AppError('VALIDATION_FAILED', '缺少备份文件');
     const password = String((file.fields?.password as { value?: string })?.value ?? '');
     if (!password) throw new AppError('VALIDATION_FAILED', '缺少备份密码');
+    context.backupThrottle.assertAllowed();
 
     const uploadPath = join(context.stagingDir, `upload-${Date.now()}.ledgerbox`);
     await pipeline(file.file, createWriteStream(uploadPath, { mode: 0o600 }));
     try {
-      const { preview, stagingPath } = await context.backups.verifyAndStage(
-        uploadPath,
-        context.stagingDir,
-        password,
-        config.limits.maxBackupBytes,
-      );
+      let preview;
+      let stagingPath: string;
+      try {
+        const result = await context.backups.verifyAndStage(
+          uploadPath,
+          context.stagingDir,
+          password,
+          config.limits.maxBackupBytes,
+        );
+        preview = result.preview;
+        stagingPath = result.stagingPath;
+      } catch (error) {
+        if (error instanceof AppError && error.code === 'INVALID_PASSWORD_OR_BACKUP') {
+          context.backupThrottle.recordFailure();
+        }
+        throw error;
+      }
+      context.backupThrottle.recordSuccess();
       const planId = randomUUID();
       const plan: RestorePlan = {
         id: planId,

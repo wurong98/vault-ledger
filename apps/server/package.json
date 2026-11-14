@@ -13,16 +13,15 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.1",
     "@fastify/multipart": "^9.4.0",
-    "@fastify/static": "^8.0.3",
+    "@fastify/static": "^10.1.11",
     "@ledgerbox/contracts": "*",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "fastify": "^5.2.0",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.5",
     "yauzl": "^3.2.0",
-    "zod": "^3.24.1"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/archiver": "^6.0.3",
     "@types/yauzl": "^2.10.3"
   }
 }

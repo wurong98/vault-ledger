@@ -3,6 +3,7 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly fields?: Record<string, string>,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
   }
@@ -24,7 +25,12 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    let body: { code?: string; message?: string; fields?: Record<string, string> } = {};
+    let body: {
+      code?: string;
+      message?: string;
+      fields?: Record<string, string>;
+      retryAfterSeconds?: number;
+    } = {};
     try {
       body = await response.json();
     } catch {
@@ -34,6 +40,7 @@ async function request<T>(
       body.code ?? 'INTERNAL_ERROR',
       body.message ?? `请求失败（${response.status}）`,
       body.fields,
+      body.retryAfterSeconds,
     );
   }
   if (options.raw) return response as unknown as T;

@@ -8,7 +8,7 @@ import {
 /* ---------- 引导与解锁 ---------- */
 
 export const setupRequestSchema = z.object({
-  password: z.string().min(12, '密码至少 12 个字符').max(200),
+  password: z.string().min(6, '密码至少 6 个字符').max(200),
   passwordConfirmation: z.string(),
   ledgerName: z.string().min(1).max(60).default('个人'),
 });
@@ -115,7 +115,24 @@ export const recordInputSchema = z.object({
 });
 export type RecordInput = z.infer<typeof recordInputSchema>;
 
-export const recordPatchSchema = recordInputSchema.partial().extend({
+/**
+ * 修订补丁：所有字段都是可选且**不带默认值**。
+ * 若沿用 recordInputSchema.partial()，缺省字段会被填成 null，
+ * 合并时会把记录原有的联系人、备注等覆盖掉。
+ */
+export const recordPatchSchema = z.object({
+  type: recordTypeSchema.optional(),
+  amount: moneyString.optional(),
+  currency: currencySchema.optional(),
+  occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  accountId: z.string().min(1).optional(),
+  counterAccountId: z.string().min(1).nullable().optional(),
+  contactId: z.string().nullable().optional(),
+  paymentMethod: z.string().max(40).nullable().optional(),
+  merchant: z.string().max(100).nullable().optional(),
+  category: z.string().max(40).nullable().optional(),
+  remark: z.string().max(500).nullable().optional(),
+  sourceId: z.string().nullable().optional(),
   reason: z.string().max(500).nullable().default(null),
 });
 export type RecordPatch = z.infer<typeof recordPatchSchema>;

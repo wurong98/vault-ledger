@@ -159,6 +159,38 @@ describe('账本与借还款', () => {
     }
   });
 
+  it('修订借还款记录时保留联系人，不会被缺省值覆盖', async () => {
+    const ctx = await setup();
+    try {
+      const { service, ledgerId, account, contact } = ctx;
+      const record = await service.createRecord(ledgerId, {
+        type: 'lend',
+        amount: '500.00',
+        currency: 'CNY',
+        occurredOn: '2026-11-01',
+        accountId: account.id,
+        counterAccountId: null,
+        contactId: contact.id,
+        paymentMethod: '微信',
+        merchant: null,
+        category: null,
+        remark: '月底归还',
+        sourceId: null,
+      });
+      const updated = await service.updateRecord(
+        record.id,
+        { amount: '600.00' },
+        record.revision,
+      );
+      expect(updated.amount).toBe('600.00');
+      expect(updated.contactId).toBe(contact.id);
+      expect(updated.remark).toBe('月底归还');
+      expect(updated.paymentMethod).toBe('微信');
+    } finally {
+      await removeDir(ctx.dir);
+    }
+  });
+
   it('作废后不计入当前统计', async () => {
     const ctx = await setup();
     try {

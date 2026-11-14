@@ -31,10 +31,10 @@ export async function validateImage(
       `图片超过 ${Math.floor(limits.maxImageBytes / 1024 / 1024)} MiB 上限`,
     );
   }
-  let meta: sharp.Metadata;
-  try {
-    meta = await sharp(buffer, { limitInputPixels: limits.maxImagePixels }).metadata();
-  } catch {
+  const meta = await sharp(buffer, { limitInputPixels: limits.maxImagePixels })
+    .metadata()
+    .catch(() => null);
+  if (!meta) {
     throw new AppError('VALIDATION_FAILED', '无法解析图片内容');
   }
   const mimeType = meta.format ? ALLOWED.get(meta.format) : undefined;

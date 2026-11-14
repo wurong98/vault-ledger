@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import { createWriteStream } from 'node:fs';
 import { VaultRepository } from '../../apps/server/src/vault/store.js';
 import { LedgerService } from '../../apps/server/src/domain/ledger-service.js';
@@ -142,7 +142,7 @@ describe('备份与恢复', () => {
     try {
       const evil = join(dirA, 'evil.ledgerbox');
       const output = createWriteStream(evil);
-      const archive = archiver('zip');
+      const archive = new ZipArchive();
       archive.pipe(output);
       archive.append('owned', { name: '../escape.txt' });
       await archive.finalize();

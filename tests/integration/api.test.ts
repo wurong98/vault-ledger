@@ -284,6 +284,17 @@ describe('HTTP 接口', () => {
     expect(unlock.json().code).toBe('INVALID_PASSWORD_OR_BACKUP');
   });
 
+  it('密码过短返回 400 与字段提示，而不是 500', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/setup',
+      payload: { password: 'abc', passwordConfirmation: 'abc', ledgerName: '个人' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe('VALIDATION_FAILED');
+    expect(response.json().fields.password).toContain('6');
+  });
+
   it('数据目录被占用时给出 STORAGE_LOCKED', async () => {
     const { createApp: create } = await import('../../apps/server/src/app.js');
     const base = loadConfig();

@@ -11,3 +11,11 @@ staging/
 backups/
 coverage/
 .DS_Store
+
+# 编译产物只允许出现在 dist/，src 下的 .js/.d.ts 属于构建残留
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+apps/*/src/**/*.js
+apps/*/src/**/*.js.map
+apps/*/src/**/*.d.ts

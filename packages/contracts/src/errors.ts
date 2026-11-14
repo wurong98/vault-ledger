@@ -33,6 +33,8 @@ export interface ApiErrorBody {
   requestId?: string;
   /** 仅安全的字段级提示，例如 { amount: '金额最多两位小数' } */
   fields?: Record<string, string>;
+  /** 需要等待的秒数，用于限流与冷却。 */
+  retryAfterSeconds?: number;
 }
 
 const DEFAULT_STATUS: Record<ErrorCode, number> = {

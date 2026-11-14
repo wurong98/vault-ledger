@@ -4,13 +4,20 @@ import { statusForError, type ApiErrorBody, type ErrorCode } from '@ledgerbox/co
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly fields?: Record<string, string>;
+  readonly retryAfterSeconds?: number;
   readonly status: number;
 
-  constructor(code: ErrorCode, message: string, fields?: Record<string, string>) {
+  constructor(
+    code: ErrorCode,
+    message: string,
+    fields?: Record<string, string>,
+    retryAfterSeconds?: number,
+  ) {
     super(message);
     this.name = 'AppError';
     this.code = code;
     this.fields = fields;
+    this.retryAfterSeconds = retryAfterSeconds;
     this.status = statusForError(code);
   }
 
@@ -18,6 +25,9 @@ export class AppError extends Error {
     const body: ApiErrorBody = { code: this.code, message: this.message };
     if (requestId) body.requestId = requestId;
     if (this.fields) body.fields = this.fields;
+    if (this.retryAfterSeconds !== undefined) {
+      body.retryAfterSeconds = this.retryAfterSeconds;
+    }
     return body;
   }
 }

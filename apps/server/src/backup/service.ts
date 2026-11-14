@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import yauzl from 'yauzl';
 import { AppError } from '../errors.js';
 import { open, seal } from '../vault/aead.js';
@@ -74,7 +74,7 @@ export class BackupService {
     await ensureDir(stagingDir);
 
     const output = createWriteStream(outPath, { mode: 0o600 });
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     const finished = new Promise<void>((resolve, reject) => {
       output.on('close', resolve);
       output.on('error', reject);
