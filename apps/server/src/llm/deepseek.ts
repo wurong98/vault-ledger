@@ -63,6 +63,7 @@ export class DeepSeekClient {
         model: this.model,
         messages,
         stream: false,
+        thinking: { type: 'disabled' },
       };
       if (options.jsonMode) body.response_format = { type: 'json_object' };
       if (options.maxTokens) body.max_tokens = options.maxTokens;
@@ -92,10 +93,17 @@ export class DeepSeekClient {
       }
 
       const json = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
+        choices?: Array<{ finish_reason?: string; message?: { content?: string; reasoning_content?: string } }>;
       };
-      const content = json.choices?.[0]?.message?.content;
+      const choice = json.choices?.[0];
+      if (choice?.finish_reason === 'length') {
+        throw new AppError('MODEL_RESPONSE_INVALID', '模型输出达到长度上限，请缩短对话或减少本次处理的账单后重试');
+      }
+      const content = choice?.message?.content;
       if (typeof content !== 'string' || content.trim() === '') {
+        if (choice?.message?.reasoning_content?.trim()) {
+          throw new AppError('MODEL_RESPONSE_INVALID', '模型仅返回了思考过程，未生成答复，请使用支持非思考模式的模型后重试');
+        }
         throw new AppError('MODEL_RESPONSE_INVALID', '模型返回内容为空');
       }
       return content;
